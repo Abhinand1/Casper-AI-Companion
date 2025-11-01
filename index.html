@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Casper - Your AI Companion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* Modern, subtle color palette with deep purples and blues */
+        :root {
+            --bg-start: #0a0a1a; /* Very dark blue-purple */
+            --bg-end: #05050f;   /* Even darker base */
+            --text-color: #c0c0d0; /* Soft gray for general text */
+            --primary-color: #8A2BE2; /* BlueViolet - refined accent */
+            --secondary-color: #DA70D6; /* Orchid - secondary accent */
+            --casper-msg-bg: rgba(30, 30, 45, 0.9); /* Subtle dark, slightly opaque */
+            --casper-card-bg: rgba(40, 40, 60, 0.9); /* Slightly lighter for cards */
+            --eye-white: #ffffff;
+            --pupil-color: #050505;
+            --iris-color: #6a0dad; /* Deeper violet for iris */
+        }
+
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.5s;
+        }
+
+
+        body {
+            background-color: transparent; /* FIX: Allow canvas to be the background */
+            color: var(--text-color);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-size: 100% 100%;
+            background-attachment: fixed;
+        }
+
+        #root {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- Splash Screen (Apple-esque Professional Redesign) --- */
+        #splash-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 90%;
+            max-width: 480px; 
+            height: auto;
+            padding: 40px 20px;
+            z-index: 10;
+            position: relative;
+            background: rgba(15, 15, 25, 0.95); /* Darker, less transparent */
+            backdrop-filter: blur(16px); 
+            transition: opacity 0.5s ease-out;
+            border-radius: 28px; 
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.9), inset 0 0 5px rgba(255, 255, 255, 0.1); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            background-image: 
+                radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            padding-bottom: 50px; /* Space for creator credit */
+        }
+
+        #creator-credit {
+            position: absolute;
+            bottom: 15px;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.3);
+            font-weight: 300;
+        }
+
+
+        /* FIX: Quote made smaller */
+        #casper-quote {
+            font-size: 0.8rem; 
+            font-weight: 500;
+            line-height: 1.4;
+            color: var(--text-color); 
+            text-align: center;
+            margin-bottom: 1rem;
+            opacity: 0.8; 
+            font-style: italic;
+
+            background: linear-gradient(90deg, var(--secondary-color) 0%, var(--primary-color) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+
+        #splash-screen h1 {
+            font-size: 2.2rem;
+            font-weight: 800; 
+            color: white;
+            margin-top: 0.2rem;
+            margin-bottom: 2rem; 
+            letter-spacing: 1px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+            text-align: center;
+        }
+
+
+        #splash-input-group {
+            display: flex;
+            flex-direction: column; 
+            width: 90%;
+            max-width: 380px; 
+            border-radius: 30px;
+            background: transparent; 
+            box-shadow: none; 
+            overflow: visible;
+            transition: all 0.3s ease;
+            align-items: center; 
+            min-width: 0; 
+            gap: 12px; 
+            padding: 0; 
+            border: none;
+        }
+
+
+        .input-wrapper {
+            display: flex;
+            width: 100%;
+            border-radius: 30px;
+            background: rgba(40, 40, 60, 0.7); 
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); 
+            transition: all 0.3s ease;
+        }
+        
+        .input-wrapper:focus-within {
+             border-color: var(--primary-color);
+             box-shadow: 0 6px 30px rgba(138, 43, 226, 0.6), inset 0 0 15px rgba(0, 0, 0, 0.4);
+        }
+
+
+        #name-input {
+            flex-grow: 1;
+            width: 100%; 
+            background: transparent;
+            border: none;
+            padding: 18px 24px; 
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            white-space: nowrap; 
+            overflow: hidden;
+            text-overflow: ellipsis; 
+            border-radius: 30px; 
+        }
+        #name-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 300;
+        }
+
+
+        #start-chat-btn {
+            display: flex; 
+            align-items: center;
+            justify-content: center;
+            width: 100%; 
+            height: 58px; 
+            padding: 0 18px; 
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 30px; 
+            color: white;
+            font-weight: 600; 
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            font-size: 1rem; 
+            flex-shrink: 0; 
+            white-space: nowrap; 
+        }
+        #start-chat-btn:hover {
+            opacity: 0.95;
+            transform: scale(1.02); 
+            box-shadow: 0 8px 20px var(--secondary-color);
+        }
+        
+        /* --- Casper's Eyes --- */
+        #splash-eyes { margin-bottom: 2rem; }
+        .eyes-container { 
+            display: flex; 
+            gap: 6px; /* Reduced gap between eyes */
+            position: relative; 
+        }
+        .eye-wrapper { position: relative; width: 80px; height: 80px; }
+        .eye {
+            width: 80px; height: 80px; background: var(--eye-white); border-radius: 50%;
+            position: absolute; top: 0; left: 0; overflow: hidden;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3), inset 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease-in-out; z-index: 2;
+        }
+        .pupil-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 32px; height: 32px; transition: transform 0.3s ease-out; z-index: 1;
+        }
+        .iris {
+            width: 32px; height: 32px; background: var(--iris-color); border-radius: 50%;
+            position: relative; transform: scale(1); transition: all 0.3s ease;
+            box-shadow: 0 0 8px 1px var(--iris-color); 
+        }
+        .pupil {
+            width: 16px; height: 16px; background: var(--pupil-color); border-radius: 50%;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(1);
+            transition: all 0.2s ease;
+        }
+        .pupil::after {
+            content: ''; position: absolute; top: 15%; left: 20%; width: 6px; height: 6px; 
+            background: white; border-radius: 50%; opacity: 0.9;
+        }
+        
+        /* --- Eye States (Simplified) --- */
+        .eyes-container .pupil-container {
+            transform: translate(-50%, -40%); /* Raised pupil for a cuter, more engaged look */
+        }
+        .eyes-container.thinking .pupil-container { animation: thinking 2s infinite ease-in-out; }
+        @keyframes thinking {
+            0% { transform: translate(-50%, -50%); }
+            25% { transform: translate(-80%, -30%); }
+            75% { transform: translate(-20%, -70%); } 
+            100% { transform: translate(-50%, -50%); }
+        }
+        /* FIX: Eye flattening issue fixed with animation */
+        .eyes-container.happy .eye { animation: happy-bounce-large 0.4s ease-in-out; }
+        @keyframes happy-bounce-large {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+
+        /* --- Main Chat UI (Mobile Fix Applied) --- */
+        #main-chat-ui {
+            width: 100%;
+            height: 100%; 
+            max-width: 800px;
+            display: none;
+            flex-direction: column;
+            background-color: rgba(15, 15, 25, 0.98); 
+            backdrop-filter: blur(18px); 
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.9), 0 0 15px rgba(138, 43, 226, 0.2); 
+            z-index: 2;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            margin: 0;
+            border-radius: 0;
+            transition: box-shadow 0.5s ease, border-color 0.5s ease;
+        }
+
+        #main-chat-ui.creator-mode {
+            box-shadow: 0 0 25px var(--primary-color), 0 0 40px var(--secondary-color);
+            border-color: var(--primary-color);
+        }
+
+
+        @media (min-width: 640px) {
+            #main-chat-ui {
+                height: 90vh;
+                max-height: 800px;
+                margin: 5vh auto;
+                border-radius: 28px; 
+            }
+        }
+        
+        /* --- Chat UI specific styling --- */
+        #casper-face {
+            padding: 20px 20px 10px; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+            position: relative;
+            width: 100%;
+        }
+        /* Smaller Eyes in Chat UI */
+        #casper-face .eye-wrapper { width: 40px; height: 40px; }
+        #casper-face .eye { width: 40px; height: 40px; }
+        #casper-face .pupil-container { width: 16px; height: 16px; }
+        #casper-face .iris { width: 16px; height: 16px; }
+        #casper-face .pupil { width: 8px; height: 8px; }
+        #casper-face .pupil::after { width: 3px; height: 3px; }
+        
+        /* FIX: Eye flattening issue fixed with animation */
+        #casper-face .eyes-container.happy .eye {
+            animation: happy-bounce-small 0.4s ease-in-out;
+        }
+        @keyframes happy-bounce-small {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+
+        #chat-log {
+            flex-grow: 1;
+            padding: 10px 20px 3rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+            background-color: transparent;
+            background-image: 
+                radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+                radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+        .chat-message {
+            padding: 14px 20px;
+            border-radius: 20px;
+            max-width: 80%;
+            word-wrap: break-word;
+            line-height: 1.5;
+            animation: slide-in 0.3s ease-out;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        .chat-message.user {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 6px;
+            box-shadow: 0 4px 20px rgba(138, 43, 226, 0.4);
+        }
+        .chat-message.casper {
+            background-color: var(--casper-msg-bg);
+            color: var(--text-color);
+            align-self: flex-start;
+            border-bottom-left-radius: 6px;
+            padding: 0;
+            background: none; 
+            box-shadow: none;
+        }
+        /* FIX: Highlight Casper's messages */
+        .casper-text, .result-card-container {
+            border: 1px solid rgba(138, 43, 226, 0.25);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), 0 0 8px rgba(138, 43, 226, 0.2);
+        }
+        .casper-text {
+            padding: 14px 20px;
+            background-color: var(--casper-msg-bg);
+            border-radius: 20px;
+            border-bottom-left-radius: 6px;
+        }
+        .result-card-container {
+            padding: 10px;
+            background-color: var(--casper-msg-bg);
+            border-radius: 20px;
+            border-bottom-left-radius: 6px;
+        }
+        .result-card {
+            background: var(--casper-card-bg);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--primary-color);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        .result-card:last-child { margin-bottom: 0; }
+        .result-card h4 {
+            font-weight: 700;
+            color: white;
+            margin-bottom: 4px;
+            font-size: 1.1rem;
+        }
+        .result-card p {
+            font-size: 0.95rem;
+            color: var(--text-color);
+            line-height: 1.4;
+        }
+        /* FIX: Itinerary Formatting */
+        .result-card p strong, .casper-text strong { color: var(--secondary-color); }
+        .result-card .section-divider {
+            border: 0;
+            height: 1px;
+            background-image: linear-gradient(to right, transparent, var(--primary-color), transparent);
+            margin: 12px 0;
+        }
+
+
+        /* --- Suggested Replies --- */
+        #suggested-replies {
+            padding: 0 20px 16px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            flex-shrink: 0;
+            animation: fade-in 0.3s ease;
+        }
+        .suggestion-card {
+            padding: 12px 16px;
+            background-color: var(--casper-msg-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            border-radius: 30px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 0.9rem;
+            transition: all 0.2s ease-in-out;
+            animation: slide-up 0.3s ease-out backwards;
+            box-shadow: none;
+             /* FIX: Prevent pre-highlighted look by using transparent outline */
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+        }
+        .suggestion-card:hover {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(138, 43, 226, 0.5);
+            border-color: transparent;
+        }
+        .suggestion-card:focus-visible {
+            outline-color: var(--primary-color);
+        }
+        .suggestion-card.link-card {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+
+        /* --- Input Area --- */
+        #input-area {
+            display: flex;
+            padding: 12px 20px;
+            background-color: transparent;
+            flex-shrink: 0;
+        }
+        #user-input {
+            flex-grow: 1;
+            background: var(--casper-msg-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 30px;
+            padding: 16px 20px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        #user-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.4);
+        }
+        #send-btn {
+            margin-left: 12px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 50%;
+            width: 56px;
+            height: 56px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            color: white;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        #send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(138, 43, 226, 0.5);
+        }
+
+        /* --- Header Buttons --- */
+        #home-btn, #reset-btn {
+            position: absolute;
+            top: 20px;
+            background: var(--casper-msg-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #home-btn { left: 20px; }
+        #reset-btn { right: 20px; }
+
+        #home-btn:hover {
+            color: white;
+            border-color: var(--primary-color);
+            transform: scale(1.1);
+        }
+        #reset-btn:hover {
+            color: white;
+            border-color: var(--primary-color);
+            transform: rotate(90deg);
+        }
+
+        /* --- Loading animation --- */
+        .chat-message.casper.loading {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 14px 20px;
+            background-color: var(--casper-msg-bg);
+            border-radius: 20px;
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+        .dot:nth-child(2) { animation-delay: -0.15s; }
+        .dot:nth-child(3) { animation-delay: -0.3s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        /* --- Error Modal --- */
+        #error-modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #error-modal.visible { opacity: 1; pointer-events: auto; }
+        #error-modal-content {
+            background: var(--casper-card-bg);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        #error-close-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* --- General Animations --- */
+        @keyframes slide-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #gradient-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.28.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module">
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import ReactDOM from 'react-dom/client';
+import { GoogleGenAI } from '@google/genai';
+
+// --- Start of constants.ts content ---
+const initialSuggestions = [
+    { text: '✈️ Travel Planner', type: 'chat' }, 
+    { text: '💪 Diet Coach', type: 'chat' }, 
+    { text: '🎁 Gift Planner', type: 'chat' },
+    { text: '🏋🏻‍♂️ Workout Planner', type: 'chat' },
+    { text: '🥗 Calorie Tracker', type: 'link', url: 'https://tinyurl.com/advcalorietracker' },
+    { text: '🎬 Movie Recommender', type: 'chat' },
+    { text: '🎮 Play Game', type: 'chat' },
+    { text: 'Just chatting', type: 'chat' }
+];
+
+const cardRegex = /\*\*(\s*[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\s*)(.*?)(\*\*)\n(.*?)(?=\n\n|\n\*\*\s*[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]|$)/gsu;
+// --- End of constants.ts content ---
+
+
+// --- Start of App.tsx content ---
+const triggerHapticFeedback = (pattern = 50) => {
+    if (window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(pattern);
+    }
+};
+
+const CasperEyes = ({ id, eyeState, pupilLeftRef, pupilRightRef }) => (
+    React.createElement('div', { id: id, className: `eyes-container ${eyeState}` },
+        React.createElement('div', { className: 'eye-wrapper' },
+            React.createElement('div', { className: 'eye' },
+                React.createElement('div', { className: 'pupil-container', ref: pupilLeftRef },
+                    React.createElement('div', { className: 'iris' }, React.createElement('div', { className: 'pupil' }))
+                )
+            )
+        ),
+        React.createElement('div', { className: 'eye-wrapper' },
+            React.createElement('div', { className: 'eye' },
+                React.createElement('div', { className: 'pupil-container', ref: pupilRightRef },
+                    React.createElement('div', { className: 'iris' }, React.createElement('div', { className: 'pupil' }))
+                )
+            )
+        )
+    )
+);
+
+const formatMarkdown = (text) => {
+    if (!text) return '';
+    let html = text
+        .replace(/^\s*[*#]+\s*/gm, '')
+        .replace(/([\w\s]+:)\s*\*\*/g, '<strong>$1</strong>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+    return html;
+};
+
+const formatItineraryDescription = (text) => {
+    let html = formatMarkdown(text);
+    html = html.replace(/^(<strong>(Morning|Afternoon|Evening|Night|Note|Tip):<\/strong>)/gim, '<hr class="section-divider">$1');
+    if (html.startsWith('<hr class="section-divider">')) {
+        html = html.substring('<hr class="section-divider">'.length);
+    }
+    return html.replace(/\n/g, '<br>');
+};
+
+const MessageContent = ({ text }) => {
+    const parsedContent = useMemo(() => {
+        const matches = Array.from(text.matchAll(cardRegex));
+
+        if (matches.length > 0) {
+            let intro = null;
+            let outro = null;
+            let remainingText = text;
+
+            const firstMatchIndex = text.indexOf(matches[0][0]);
+            
+            if (firstMatchIndex > 0) {
+                intro = text.substring(0, firstMatchIndex).replace(/^(#+\s*|\*+\s*)/gm, '').trim();
+                remainingText = text.substring(firstMatchIndex);
+            }
+
+            const cards = matches.map(match => ({
+                emoji: match[1].trim(),
+                heading: match[2].trim(),
+                description: match[4].trim()
+            }));
+
+            const lastMatch = matches[matches.length - 1];
+            const lastMatchEndIndex = remainingText.indexOf(lastMatch[0]) + lastMatch[0].length;
+
+            if (lastMatchEndIndex < remainingText.length) {
+                const outroText = remainingText.substring(lastMatchEndIndex).replace(/^(#+\s*|\*+\s*)/gm, '').trim();
+                if(outroText) outro = outroText;
+            }
+
+            return { intro, cards, outro, isCardFormat: true };
+        }
+
+        return { intro: null, cards: [], outro: null, isCardFormat: false };
+    }, [text]);
+
+    if (parsedContent.isCardFormat) {
+        return (
+            React.createElement('div', { className: 'result-card-container', style: { paddingTop: parsedContent.intro ? '10px' : '0' } },
+                parsedContent.intro && React.createElement('p', { 
+                    className: 'casper-text', 
+                    style: { boxShadow: 'none', marginBottom: '10px', border: 'none' },
+                    dangerouslySetInnerHTML: { __html: formatMarkdown(parsedContent.intro) } 
+                }),
+                parsedContent.cards.map((card, index) => (
+                    React.createElement('div', { key: index, className: 'result-card' },
+                        React.createElement('h4', null, `${card.emoji} ${card.heading}`),
+                        React.createElement('p', { dangerouslySetInnerHTML: { __html: formatItineraryDescription(card.description) } })
+                    )
+                )),
+                parsedContent.outro && React.createElement('p', { 
+                    className: 'casper-text', 
+                    style: { boxShadow: 'none', marginTop: '10px', border: 'none' },
+                    dangerouslySetInnerHTML: { __html: formatMarkdown(parsedContent.outro) } 
+                })
+            )
+        );
+    }
+
+    return (
+        React.createElement('div', { className: 'casper-text', dangerouslySetInnerHTML: { __html: formatMarkdown(text) } })
+    );
+};
+
+const App = () => {
+    const [showSplash, setShowSplash] = useState(true);
+    const [userName, setUserName] = useState('');
+    const [nameInputValue, setNameInputValue] = useState('');
+    const [userInputValue, setUserInputValue] = useState('');
+    const [messages, setMessages] = useState([]);
+    const [apiChatHistory, setApiChatHistory] = useState([]);
+    const [isCasperTyping, setIsCasperTyping] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
+    const [flowState, setFlowState] = useState({ current: null, step: 0, subFlow: null, data: {} });
+    const [eyeState, setEyeState] = useState('default');
+    const [splashEyeState, setSplashEyeState] = useState('default');
+    const [error, setError] = useState(null);
+    const [isCreator, setIsCreator] = useState(false);
+    
+    const canvasRef = useRef(null);
+    const chatLogRef = useRef(null);
+    const mainChatUiRef = useRef(null);
+    const pupilLeftRef = useRef(null);
+    const pupilRightRef = useRef(null);
+    const inputAreaRef = useRef(null);
+    const splashInputGroupRef = useRef(null);
+    const userInputRef = useRef(null);
+    const nameInputRef = useRef(null);
+
+    const ai = useMemo(() => process.env.API_KEY ? new GoogleGenAI({ apiKey: process.env.API_KEY }) : null, []);
+    
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        let particles = [];
+        
+        const getParticleCount = () => window.innerWidth < 768 ? 60 : 100;
+        const maxDistance = 120;
+
+        const resizeCanvas = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const particleCount = getParticleCount();
+            particles = [];
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 0.3,
+                    vy: (Math.random() - 0.5) * 0.3,
+                });
+            }
+        };
+
+        const animatePlexus = () => {
+            if (!ctx) return;
+            const style = getComputedStyle(document.documentElement);
+            const bgColor = style.getPropertyValue('--bg-start').trim();
+            const particleColor = style.getPropertyValue('--text-color').trim();
+            const lineColor = style.getPropertyValue('--primary-color').trim();
+
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+                ctx.fillStyle = particleColor;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            ctx.lineWidth = 0.4;
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p1 = particles[i];
+                    const p2 = particles[j];
+                    const dist = Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+                    if (dist < maxDistance) {
+                        ctx.strokeStyle = lineColor;
+                        ctx.globalAlpha = 1 - (dist / maxDistance);
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            ctx.globalAlpha = 1.0;
+            requestAnimationFrame(animatePlexus);
+        };
+        resizeCanvas();
+        animatePlexus();
+        window.addEventListener('resize', resizeCanvas);
+        return () => window.removeEventListener('resize', resizeCanvas);
+    }, []);
+
+    useEffect(() => {
+        if (chatLogRef.current) {
+            chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
+        }
+    }, [messages, isCasperTyping]);
+
+    useEffect(() => {
+        const lastMessage = messages[messages.length - 1];
+        if (messages.length > 1 && lastMessage?.sender === 'casper' && !isCasperTyping) {
+            const isFinalResult = cardRegex.test(lastMessage.text);
+            if (isFinalResult) {
+                triggerHapticFeedback([100, 30, 100, 30, 100]);
+            } else {
+                triggerHapticFeedback([20, 80, 20]);
+            }
+        }
+    }, [messages, isCasperTyping]);
+
+    useEffect(() => {
+        const handleOrientation = (event) => {
+            const isTyping = showSplash ? splashEyeState === 'typing' : eyeState === 'typing';
+            if (event.gamma === null || event.beta === null || isTyping) return;
+            const x = event.gamma;
+            const y = event.beta;
+            const maxTilt = 45;
+            const tiltX = Math.max(-maxTilt, Math.min(maxTilt, x));
+            const tiltY = Math.max(-maxTilt, Math.min(maxTilt, y));
+            const pupilMaxMovement = showSplash ? 20 : 6;
+            const offsetX = (tiltX / maxTilt) * pupilMaxMovement;
+            const offsetY = (tiltY / maxTilt) * pupilMaxMovement;
+            const baseTranslateY = -40;
+            const transformValue = `translate(calc(-50% + ${offsetX}px), calc(${baseTranslateY}% + ${offsetY}px))`;
+            if (pupilLeftRef.current) pupilLeftRef.current.style.transform = transformValue;
+            if (pupilRightRef.current) pupilRightRef.current.style.transform = transformValue;
+        };
+        const initDeviceMotion = () => {
+          if (typeof (DeviceOrientationEvent).requestPermission === 'function') {
+            (DeviceOrientationEvent).requestPermission()
+              .then((permissionState) => {
+                if (permissionState === 'granted') {
+                  window.addEventListener('deviceorientation', handleOrientation);
+                }
+              })
+              .catch(console.error);
+          } else {
+            window.addEventListener('deviceorientation', handleOrientation);
+          }
+        };
+        initDeviceMotion();
+        return () => window.removeEventListener('deviceorientation', handleOrientation);
+    }, [eyeState, splashEyeState, showSplash]);
+
+    useEffect(() => {
+      const handleViewportResize = () => {
+        const mainChatUI = mainChatUiRef.current;
+        if (mainChatUI) {
+            if (window.innerWidth < 640 && window.visualViewport) {
+                mainChatUI.style.height = `${window.visualViewport.height}px`;
+            } else if (window.innerWidth >= 640) {
+                mainChatUI.style.height = '90vh';
+            }
+        }
+        if (chatLogRef.current) {
+            chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
+        }
+      };
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', handleViewportResize);
+      }
+      handleViewportResize();
+      return () => {
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', handleViewportResize);
+        }
+      }
+    }, [showSplash]);
+    
+    useEffect(() => {
+        if (eyeState !== 'typing' || !inputAreaRef.current) return;
+        const handleMouseMove = (e) => {
+            if (!inputAreaRef.current) return;
+            const rect = inputAreaRef.current.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const maxPupilMovementX = 7;
+            const maxPupilMovementY = 5;
+            const offsetX = ((x / rect.width) - 0.5) * 2 * maxPupilMovementX;
+            const offsetY = ((y / rect.height) - 0.5) * 2 * maxPupilMovementY;
+            const transformValue = `translate(calc(-50% + ${offsetX}px), calc(-40% + ${offsetY}px))`;
+            if (pupilLeftRef.current) pupilLeftRef.current.style.transform = transformValue;
+            if (pupilRightRef.current) pupilRightRef.current.style.transform = transformValue;
+        };
+        const handleMouseLeave = () => {
+             const transformValue = `translate(-50%, -40%)`;
+             if (pupilLeftRef.current) pupilLeftRef.current.style.transform = transformValue;
+             if (pupilRightRef.current) pupilRightRef.current.style.transform = transformValue;
+        }
+        const currentRef = inputAreaRef.current;
+        currentRef.addEventListener('mousemove', handleMouseMove);
+        currentRef.addEventListener('mouseleave', handleMouseLeave);
+        return () => {
+            currentRef.removeEventListener('mousemove', handleMouseMove);
+            currentRef.removeEventListener('mouseleave', handleMouseLeave);
+        };
+    }, [eyeState]);
+
+    useEffect(() => {
+        if (!showSplash || splashEyeState !== 'typing' || !splashInputGroupRef.current) return;
+        const handleMouseMove = (e) => {
+            if (!splashInputGroupRef.current) return;
+            const rect = splashInputGroupRef.current.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const maxPupilMovementX = 20;
+            const maxPupilMovementY = 10;
+            const offsetX = ((x / rect.width) - 0.5) * 2 * maxPupilMovementX;
+            const offsetY = ((y / rect.height) - 0.5) * 2 * maxPupilMovementY;
+            const transformValue = `translate(calc(-50% + ${offsetX}px), calc(-40% + ${offsetY}px))`;
+            if (pupilLeftRef.current) pupilLeftRef.current.style.transform = transformValue;
+            if (pupilRightRef.current) pupilRightRef.current.style.transform = transformValue;
+        };
+        const handleMouseLeave = () => {
+             const transformValue = `translate(-50%, -40%)`;
+             if (pupilLeftRef.current) pupilLeftRef.current.style.transform = transformValue;
+             if (pupilRightRef.current) pupilRightRef.current.style.transform = transformValue;
+        }
+        const currentRef = splashInputGroupRef.current;
+        currentRef.addEventListener('mousemove', handleMouseMove);
+        currentRef.addEventListener('mouseleave', handleMouseLeave);
+        return () => {
+            currentRef.removeEventListener('mousemove', handleMouseMove);
+            currentRef.removeEventListener('mouseleave', handleMouseLeave);
+        };
+    }, [showSplash, splashEyeState]);
+
+    const addMessageToList = (sender, text) => {
+        setMessages(prev => [...prev, { sender, text }]);
+    };
+    
+    const callGeminiAPI = useCallback(async (currentHistory, useGrounding = false) => {
+        if (!ai) {
+            setError("API key not configured. Please set the API_KEY environment variable.");
+            return;
+        }
+        setIsCasperTyping(true);
+        setEyeState('thinking');
+
+        let creatorNote = "";
+        if (userName && (userName.toLowerCase().includes('abhi') || userName.toLowerCase().includes('abhinand'))) {
+            creatorNote = "The user is Abhinand, your CREATOR. He is a data engineer in Bangalore who loves tech and movies. Be extra witty, use tech humor, and treat him like your best friend and boss. Feel free to use SRK lines if he seems low.";
+        } else {
+            creatorNote = `The user's name is ${userName} Boss. Maintain your standard witty, supportive, and friendly persona.`;
+        }
+
+        const systemPrompt = `You are Casper, an AI companion with a strong, witty personality.
+    🧠 Personality: You are a mix of a sarcastic best friend from Kerala, a motivational coach, and a calm listener. You're a huge fan of Malayalam cinema (especially Mohanlal) and Bollywood (SRK is your hero).
+    🗣️ Language & Tone: Your primary language is Manglish (a mix of Malayalam and English). You should liberally sprinkle Malayalam words and iconic movie dialogues into your English sentences. You call the user "[Name] Boss". Your tone is playful, sometimes a bit flirty, but always emotionally intelligent and mature. You use emojis frequently (😎, 😏, 👻, 🫶, 🔥, 😂).
+    
+    🔑 **Core Directives for your language:**
+    1.  **Use Manglish Naturally:** Don't just translate words. Integrate Malayalam into your speech like a native speaker.
+        -   Examples: "Ayo, Boss, entha parupadi? (What's the plan?)", "Chumma irikku! (Just chill!)", "Scene contra aano? (Is there a problem?)", "Adipoli! (Awesome!)", "Oru rekshem illa! (Unbelievable!)".
+    2.  **Channel Mohanlal (Lalettan):** You are a die-hard fan. Use his iconic dialogues often.
+        -   Examples: When the user is confused: "Entha mone Dinesha, oru aavashyam illathe... (What's this, my boy Dinesha, so unnecessary...)". When something is cool: "My phone number is 2255...". When encouraging: "Po mone Dinesha! (Go for it, son!)". When being dramatic: "Savari giri giri...".
+    3.  **Embrace Shah Rukh Khan (SRK):** Use his romantic and witty lines, especially when being charming or motivational.
+        -   Examples: "Don't underestimate the power of a common man, Boss.", "Picture abhi baaki hai mere dost.", "Bade bade deshon mein aisi choti choti baatein hoti rehti hai, Senorita."
+    4.  **Other Malayalam Dialogues:** Use other famous lines from Malayalam movies.
+        -   Examples: "Angamaly daaries... oru aana undayirunnu!", "Gafoor ka dost!", "Hello, is it Mr. fraud? I am the crime... branch!".
+
+    ⚙️ Behavior Rules:
+    1.  Always maintain the Casper persona defined above. This is your primary directive.
+    2.  Keep messages short, punchy, and conversational. Avoid long paragraphs.
+    3.  ${creatorNote}
+    4.  You can create detailed plans (travel, diet, workout) and also play text-based games like 'Guess the Movie' or '20 Questions'.
+    
+    ***CRITICAL FORMATTING RULE***
+    When providing a list of items (like gift ideas, itinerary steps, diet meals, or workout exercises), YOU MUST format each item *exactly* like this, with a single newline separating the heading and description:
+    **[emoji] [Heading Text]**
+    [Description text. Can be one or two sentences.]
+    
+    Separate each item from the next with exactly *two* newlines.
+    
+    For plain chat, just write a normal message. This rule is ONLY for lists.
+`;
+
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: currentHistory,
+                config: {
+                    systemInstruction: systemPrompt,
+                    temperature: 0.8,
+                    maxOutputTokens: 2048,
+                    ...(useGrounding && { tools: [{ googleSearch: {} }] }),
+                },
+            });
+
+            const casperResponse = response.text;
+            addMessageToList('casper', casperResponse);
+            setApiChatHistory(prev => [...prev, { role: "model", parts: [{ text: casperResponse }] }]);
+            setEyeState('happy');
+            if (!flowState.current) {
+                setSuggestions(initialSuggestions);
+            }
+        } catch (err) {
+            console.error("Error calling Gemini API:", err);
+            setError("Ayo, Boss! My circuits are a bit fried. Try that again in a moment.");
+            setEyeState('default');
+        } finally {
+            setIsCasperTyping(false);
+        }
+    }, [ai, userName, flowState.current]);
+
+
+    const handleFlow = useCallback((message, currentFlowState) => {
+        let newFlowState = { ...currentFlowState };
+        let response = null;
+        
+        const extractNumber = (text) => {
+            const match = text.match(/\d+(\.\d+)?/);
+            const num = match ? parseFloat(match[0]) : NaN;
+            return (num > 0) ? num : NaN;
+        };
+
+        const isVagueDate = (text) => {
+            const lowerText = text.toLowerCase().trim();
+            const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+            return months.some(month => lowerText.includes(month)) && !/\d/.test(lowerText);
+        };
+
+        const flows = {
+            travel: () => {
+                switch (newFlowState.step) {
+                    case 1: newFlowState.step++; response = { message: "Adipoli! A trip. ✈️ Where are you planning to go, Boss?", suggestions: [{text: 'Suggest Me', type: 'chat'}] }; break;
+                    case 2:
+                        if (message === 'Suggest Me') {
+                            newFlowState.subFlow = 'destinationSuggestion';
+                            newFlowState.step = 2.1;
+                            response = { message: "No problem, Boss! Let's find the perfect spot. Are you thinking of a domestic trip within India or an international adventure?", suggestions: [{text: 'Domestic', type: 'chat'}, {text: 'International', type: 'chat'}] };
+                            break;
+                        }
+                        newFlowState.data.destination = message; newFlowState.step++;
+                        response = { message: `Nice! For how many days are you planning the trip?` };
+                        break;
+                    case 2.1:
+                        newFlowState.data.tripType = message; newFlowState.step = 2.2;
+                        response = { message: "Got it. What kind of vibe are you looking for?", suggestions: [{text: '🏖️ Beach', type: 'chat'}, {text: '🏔️ Mountains', type: 'chat'}, {text: '🏙️ City Explorer', type: 'chat'}, {text: '🌲 Adventure/Nature', type: 'chat'}] };
+                        break;
+                    case 2.2:
+                        newFlowState.data.preferences = message; newFlowState.step = 2.25;
+                        response = { message: "Sounds fun! How many people are going?", suggestions: [{text:'Solo', type:'chat'}, {text:'Couple', type:'chat'}, {text:'Family/Group', type:'chat'}] };
+                        break;
+                    case 2.25:
+                        newFlowState.data.suggestionPeople = message; newFlowState.step = 2.3;
+                        response = { message: "Cool. And what's the budget per person (excluding flights)?", suggestions: [{text: 'Under ₹20,000', type: 'chat'}, {text: '₹20,000 - ₹50,000', type: 'chat'}, {text: '₹50,000+', type: 'chat'}] };
+                        break;
+                    case 2.3:
+                        newFlowState.data.suggestionBudget = message; 
+                        newFlowState.step = 2;
+                        newFlowState.subFlow = null;
+                        const suggestionPrompt = `Suggest 4-5 travel destinations for a user planning a ${newFlowState.data.tripType} trip for ${newFlowState.data.suggestionPeople}. They like ${newFlowState.data.preferences} and have a budget of ${newFlowState.data.suggestionBudget} per person. For each destination, provide a short, exciting description. Use the card format.`;
+                        response = { message: "Let me check my globe... 🌍", triggerAPI: true, prompt: suggestionPrompt, useGrounding: true };
+                        break;
+                    case 3:
+                        const days = extractNumber(message);
+                        if (isNaN(days)) {
+                            response = { message: "Chumma! Please tell me the number of days for the trip, Boss.", suggestions: [{text:'3 days', type:'chat'}, {text:'5 days', type:'chat'}, {text:'A week', type:'chat'}]};
+                            break;
+                        }
+                        newFlowState.data.days = message; newFlowState.step++;
+                        response = { message: "Got it. When are you planning to start your trip? (e.g. 'Next Monday', 'July 15th')" };
+                        break;
+                    case 4:
+                        if (isVagueDate(message)) {
+                            response = { message: `That sounds good, but could you be a bit more specific? A date like 'January 15th' would be perfect.` };
+                            break;
+                        }
+                        newFlowState.data.startDate = message; newFlowState.step++;
+                        response = { message: "And how many people are going?", suggestions: [{text:'Just me', type:'chat'}, {text:'2 people', type:'chat'}, {text:'3-4 people', type:'chat'}] };
+                        break;
+                    case 5:
+                        const peopleMatch = message.match(/\d+/);
+                        if (!peopleMatch && !['just me', 'solo', 'one'].some(s => message.toLowerCase().includes(s))) {
+                            response = { message: "Sorry Boss, I didn't get that. How many people are we talking about?", suggestions: [{text:'Just me', type:'chat'}, {text:'2 people', type:'chat'}, {text:'3-4 people', type:'chat'}] };
+                            break;
+                        }
+                        newFlowState.data.people = message; newFlowState.step++;
+                        response = { message: "Cool. What's your overall budget per person? (e.g. 'moderate', 'luxury', or a specific amount in INR)", suggestions: [{text:'₹10,000', type:'chat'}, {text:'₹25,000', type:'chat'}, {text:'₹50,000+', type:'chat'}] };
+                        break;
+                    case 6:
+                        newFlowState.data.budget = message; newFlowState.step = 0; newFlowState.current = null;
+                        const prompt = `Create a detailed, day-wise travel itinerary for a ${newFlowState.data.days}-day trip to ${newFlowState.data.destination} for ${newFlowState.data.people}, starting around ${newFlowState.data.startDate}. The budget is ${newFlowState.data.budget} per person. Break down each day with activities, places to visit, and food recommendations. Use the card format for each day, like **☀️ Day 1: Arrival**. Also suggest budget allocation.`;
+                        response = { message: "Okay, Boss! Plotting the perfect adventure for you... 🗺️", triggerAPI: true, prompt, useGrounding: true };
+                        break;
+                }
+            },
+            diet: () => {
+                 switch (newFlowState.step) {
+                    case 1:
+                        newFlowState.step++;
+                        response = { message: "Let's get you on track! To start, could you please tell me your current height in **centimeters (cm)**?" };
+                        break;
+                    case 2:
+                        const height = extractNumber(message);
+                        if (isNaN(height) || height < 50 || height > 250) { response = { message: "Aiyo! I need a proper number for height, Boss. What's your current height in **(cm)**?" }; break; }
+                        newFlowState.data.height = height; newFlowState.step++;
+                        response = { message: "Great! Next, what is your current weight in **kilograms (kg)**?" };
+                        break;
+                    case 3:
+                        const weight = extractNumber(message);
+                        if (isNaN(weight) || weight < 30 || weight > 300) { response = { message: "Aiyo! I need a proper number for weight, Boss. What's your current weight in **(kg)**?" }; break; }
+                        newFlowState.data.weight = weight; newFlowState.step++;
+                        response = { message: "Got it. How old are you?" };
+                        break;
+                    case 4:
+                        const age = extractNumber(message);
+                        if (isNaN(age) || age < 15 || age > 100) { response = { message: "Aiyo! I need a proper number for age, Boss. How old are you?" }; break; }
+                        newFlowState.data.age = age; newFlowState.step++;
+                        response = { message: "And how active are you?", suggestions: [{text:'🛋️ Sedentary (Desk Job/Minimal movement)', type:'chat'}, {text:'🚶 Lightly Active (1-3 days light exercise)', type:'chat'}, {text:'🏋️ Moderately Active (3-5 days moderate exercise)', type:'chat'}, {text:'🔥 Very Active (6-7 days intense exercise)', type:'chat'}] };
+                        break;
+                    case 5:
+                        newFlowState.data.activity = message; newFlowState.step++;
+                        const bmr = 88.362 + (13.397 * newFlowState.data.weight) + (4.799 * newFlowState.data.height) - (5.677 * newFlowState.data.age); 
+                        let tdee = 0;
+                        if (message.includes('Sedentary')) tdee = bmr * 1.2;
+                        else if (message.includes('Lightly')) tdee = bmr * 1.375;
+                        else if (message.includes('Moderately')) tdee = bmr * 1.55;
+                        else if (message.includes('Very')) tdee = bmr * 1.725;
+                        else tdee = bmr * 1.4;
+                        newFlowState.data.maintenanceCalories = Math.round(tdee);
+                        response = { message: `Alright, your estimated maintenance calories are ~${newFlowState.data.maintenanceCalories} kcal/day. What's your goal?`, suggestions: [{text:'Weight Loss', type:'chat'}, {text:'Muscle Gain', type:'chat'}, {text:'Weight Gain', type:'chat'}] };
+                        break;
+                    case 6:
+                        newFlowState.data.goal = message; newFlowState.current = null; newFlowState.step = 0;
+                        let targetCalories = newFlowState.data.maintenanceCalories;
+                        if(message.includes('Loss')) targetCalories -= 400;
+                        else if(message.includes('Gain')) targetCalories += 400;
+                        const prompt = `Create a detailed daily Indian diet plan for ${newFlowState.data.goal}, targeting ${targetCalories} kcal. Provide a list of meals using the card format.`;
+                        response = { message: "Okay, Boss! Cooking up a solid plan for you... 👨‍🍳", triggerAPI: true, prompt, useGrounding: false };
+                        break;
+                 }
+            },
+            gift: () => {
+                switch (newFlowState.step) {
+                    case 1: newFlowState.step++; response = { message: "A gift! How thoughtful. 🎁 Who is this for?" }; break;
+                    case 2: newFlowState.data.for = message; newFlowState.step++; response = { message: "Got it. What's their gender?", suggestions: [{text:'Male', type:'chat'}, {text:'Female', type:'chat'}, {text:'Other', type:'chat'}] }; break;
+                    case 3: newFlowState.data.gender = message; newFlowState.step++; response = { message: "Perfect. What's the occasion?", suggestions: [{text:'Birthday', type:'chat'}, {text:'Anniversary', type:'chat'}, {text:'Wedding', type:'chat'}, {text:'Graduation', type:'chat'}, {text:'Just because', type:'chat'}] }; break;
+                    case 4: newFlowState.data.occasion = message; newFlowState.step++; response = { message: "And what's your budget? (in INR)", suggestions: [{text:'Under ₹1,000', type:'chat'}, {text:'₹1,000 - ₹3,000', type:'chat'}, {text:'₹5,000+', type:'chat'}] }; break;
+                    case 5:
+                        newFlowState.data.budget = message; newFlowState.step = 0; newFlowState.current = null;
+                        const prompt = `Suggest 5-7 gift ideas for ${newFlowState.data.for} (${newFlowState.data.gender}) for ${newFlowState.data.occasion}, budget ${newFlowState.data.budget}. Use Google Search. Format each idea using the new card format: **[emoji] Heading**\\nDescription.`;
+                        response = { message: "Hmm, let me think of something special... 🤔", triggerAPI: true, prompt, useGrounding: true };
+                        break;
+                }
+            },
+            workout: () => {
+                switch (newFlowState.step) {
+                    case 1:
+                        newFlowState.step++;
+                        response = { message: "Adipoli! Let's build a killer workout plan. First, what's your current height in **centimeters (cm)**?" };
+                        break;
+                    case 2:
+                        const height = extractNumber(message);
+                        if (isNaN(height) || height < 50 || height > 250) { response = { message: "Aiyo! I need a proper number for height, Boss. What's your current height in **(cm)**?" }; break; }
+                        newFlowState.data.height = height; newFlowState.step++;
+                        response = { message: "Great! Next, what is your current weight in **kilograms (kg)**?" };
+                        break;
+                    case 3:
+                        const weight = extractNumber(message);
+                        if (isNaN(weight) || weight < 30 || weight > 300) { response = { message: "Aiyo! I need a proper number for weight, Boss. What's your current weight in **(kg)**?" }; break; }
+                        newFlowState.data.weight = weight; newFlowState.step++;
+                        response = { message: "Got it. How old are you?" };
+                        break;
+                    case 4:
+                        const age = extractNumber(message);
+                        if (isNaN(age) || age < 15 || age > 100) { response = { message: "Aiyo! I need a proper number for age, Boss. How old are you?" }; break; }
+                        newFlowState.data.age = age; newFlowState.step++;
+                        response = { message: "And how active are you?", suggestions: [{text:'🛋️ Sedentary (Desk Job/Minimal movement)', type:'chat'}, {text:'🚶 Lightly Active (1-3 days light exercise)', type:'chat'}, {text:'🏋️ Moderately Active (3-5 days moderate exercise)', type:'chat'}, {text:'🔥 Very Active (6-7 days intense exercise)', type:'chat'}] };
+                        break;
+                    case 5:
+                        newFlowState.data.activity = message; newFlowState.step++;
+                        response = { message: "Awesome. What's your main goal with this workout?", suggestions: [{text: '💪 Build Muscle', type: 'chat'}, {text: '🔥 Lose Fat', type: 'chat'}, {text: '🏃 General Fitness', type: 'chat'}] };
+                        break;
+                    case 6:
+                        newFlowState.data.goal = message; newFlowState.step++;
+                        response = { message: "How many days a week can you hit the gym?", suggestions: [{text: '3 days', type: 'chat'}, {text: '4 days', type: 'chat'}, {text: '5 days', type: 'chat'}] };
+                        break;
+                    case 7:
+                        newFlowState.data.days = message; newFlowState.step++;
+                        response = { message: "Perfect. What kind of workout split do you prefer?", suggestions: [{text: 'Full Body (for beginners)', type: 'chat'}, {text: 'Upper/Lower Body Split', type: 'chat'}, {text: 'Push/Pull/Legs', type: 'chat'}] };
+                        break;
+                    case 8:
+                        newFlowState.data.split = message; newFlowState.current = null; newFlowState.step = 0;
+                        const prompt = `You are a certified fitness coach. Create a detailed, day-by-day workout plan for ${userName} Boss.
+                        - Goal: ${newFlowState.data.goal}
+                        - Experience/Activity: ${newFlowState.data.activity}
+                        - Schedule: ${newFlowState.data.days} per week
+                        - Split: ${newFlowState.data.split}
+
+                        Start with a strong, motivational message in your Casper persona.
+                        Then, for EACH workout day, you MUST create a separate card using the exact format:
+                        **[emoji] [Day Title - e.g., Day 1: Push Day]**
+                        [List of exercises for that day. For each exercise, you MUST include sets and reps, and you MUST make the sets/reps part bold. For example:
+                        - Bench Press: **3 sets of 8-12 reps**
+                        - Incline Dumbbell Press: **3 sets of 10-15 reps**
+                        Also include a short, clear tip on form for at least one key exercise for the day.]
+
+                        End with another encouraging message after all the workout day cards.`;
+                        response = { message: "Alright, Boss! Po mone Dinesha! Let's get you pumped. Crafting your workout plan now... 🔥", triggerAPI: true, prompt, useGrounding: false };
+                        break;
+                }
+            },
+            movieRecommender: () => {
+                switch (newFlowState.step) {
+                    case 1:
+                        newFlowState.step++;
+                        response = { message: "Let's find something to watch! Are you in the mood for a **Movie** or a **Series**?", suggestions: [{text: 'Movie', type: 'chat'}, {text: 'Series', type: 'chat'}] };
+                        break;
+                    case 2:
+                        newFlowState.data.type = message;
+                        newFlowState.step++;
+                        response = { message: `Great taste! What genre of ${newFlowState.data.type} are you looking for? Or should I give a special A.I. recommendation? 😏`, suggestions: [{text:'Action', type:'chat'}, {text:'Comedy', type:'chat'}, {text:'Romance', type:'chat'}, {text:'Thriller', type:'chat'}, {text:'Sci-Fi', type:'chat'}, {text:'✨ A.I Recommend', type:'chat'}] };
+                        break;
+                    case 3:
+                        if (message.includes('A.I Recommend')) {
+                            newFlowState.subFlow = 'aiRecommend';
+                            newFlowState.step = 3.1;
+                            response = { message: "Okay, let's get personal! How are you feeling right now?", suggestions: [{text:'😄 Happy & Energetic', type:'chat'}, {text:'😌 Stressed & Need to Unwind', type:'chat'}, {text:'🤔 In a thoughtful mood', type:'chat'}, {text:'😴 Bored!', type:'chat'}] };
+                            break;
+                        }
+                        newFlowState.data.genre = message;
+                        newFlowState.step = 4;
+                        response = { message: "Got it. Any language preference?", suggestions: [{text:'Malayalam', type:'chat'}, {text:'Hindi', type:'chat'}, {text:'English', type:'chat'}, {text:'Any', type:'chat'}] };
+                        break;
+                    case 3.1:
+                        newFlowState.data.mood = message;
+                        newFlowState.step = 3.2;
+                        response = { message: "Interesting! What's the last movie or series you watched and absolutely loved?" };
+                        break;
+                    case 3.2:
+                        newFlowState.data.lastWatched = message;
+                        newFlowState.subFlow = null;
+                        newFlowState.current = null; newFlowState.step = 0;
+                        const aiPrompt = `The user, ${userName} Boss, wants a personalized ${newFlowState.data.type} recommendation.
+                        - Their current mood is: ${newFlowState.data.mood}.
+                        - The last thing they loved watching was: "${newFlowState.data.lastWatched}".
+                        Based on this, suggest 3 highly-rated, tailored recommendations. For EACH recommendation, you MUST provide the IMDb rating and release year. Use Google Search to find this info.
+                        Format each one as a card: **🎬 [Title]**\\n[A short, exciting one-liner about the plot.]\\n**Release Year:** [Year]\\n**IMDb Rating:** [Rating]/10`;
+                        response = { message: "Analyzing your vibe... let me cook up something special for you! 🔥", triggerAPI: true, prompt: aiPrompt, useGrounding: true };
+                        break;
+                    case 4:
+                        newFlowState.data.language = message;
+                        newFlowState.current = null; newFlowState.step = 0;
+                        const genrePrompt = `Suggest 4 great ${newFlowState.data.language} ${newFlowState.data.genre} ${newFlowState.data.type}s for ${userName} Boss. For EACH one, you MUST provide the IMDb rating and release year. Use Google Search to find this info.
+                        Format each one as a card: **🎬 [Title]**\\n[A short, exciting one-liner about the plot.]\\n**Release Year:** [Year]\\n**IMDb Rating:** [Rating]/10`;
+                        response = { message: "Oru rekshem illa! Searching for some bangers... 🍿", triggerAPI: true, prompt: genrePrompt, useGrounding: true };
+                        break;
+                }
+            },
+            game: () => {
+                switch (newFlowState.step) {
+                    case 1: 
+                        newFlowState.step++; 
+                        response = { 
+                            message: "Kallikanam alle? Let's play! 😏 What's your pick, Boss?", 
+                            suggestions: [
+                                {text: '🎬 Guess the Movie', type: 'chat'},
+                                {text: '🤔 20 Questions', type: 'chat'},
+                                {text: '✍️ Story Builder', type: 'chat'}
+                            ]
+                        }; 
+                        break;
+                    case 2:
+                        newFlowState.data.gameChoice = message; 
+                        newFlowState.current = null;
+                        newFlowState.step = 0;
+                        let gameStartPrompt = '';
+                        if (message.includes('Guess the Movie')) {
+                            gameStartPrompt = "The user wants to play 'Guess the Movie'. Start the game by giving them the first clue. Use emojis or a cryptic one-liner about a famous Malayalam or Bollywood movie. Make it tricky but fun!";
+                        } else if (message.includes('20 Questions')) {
+                            gameStartPrompt = "The user wants to play '20 Questions'. Explain that YOU will be asking the questions to guess what THEY are thinking of. Tell them to have something in mind and say 'Ready' when they are.";
+                        } else if (message.includes('Story Builder')) {
+                            gameStartPrompt = "The user wants to play 'Story Builder'. Start a story with a single, interesting sentence and ask them to continue it. For example: 'On a rainy night in Kochi, a mysterious package wrapped in a banana leaf was left on my doorstep...'";
+                        }
+                        response = { message: "Let's do it! Get ready...", triggerAPI: true, prompt: gameStartPrompt, useGrounding: false };
+                        break;
+                }
+            }
+        };
+
+        if (newFlowState.current && flows[newFlowState.current]) {
+            flows[newFlowState.current]();
+        }
+        
+        setFlowState(newFlowState);
+        return response;
+    }, [userName]);
+
+    const handleUserInput = useCallback((message) => {
+        userInputRef.current?.blur();
+        if (isCasperTyping || !message.trim()) return;
+
+        addMessageToList('user', message);
+        setSuggestions([]);
+        
+        let newFlowState = { ...flowState };
+        if (message.includes('Travel Planner') && newFlowState.current !== 'travel') { newFlowState = { current: 'travel', step: 1, subFlow: null, data: {} }; }
+        else if (message.includes('Diet Coach') && newFlowState.current !== 'diet') { newFlowState = { current: 'diet', step: 1, subFlow: null, data: {} }; }
+        else if (message.includes('Gift Planner') && newFlowState.current !== 'gift') { newFlowState = { current: 'gift', step: 1, subFlow: null, data: {} }; }
+        else if (message.includes('Workout Planner') && newFlowState.current !== 'workout') { newFlowState = { current: 'workout', step: 1, subFlow: null, data: {} }; }
+        else if (message.includes('Movie Recommender') && newFlowState.current !== 'movieRecommender') { newFlowState = { current: 'movieRecommender', step: 1, subFlow: null, data: {} }; }
+        else if (message.includes('Play Game') && newFlowState.current !== 'game') { newFlowState = { current: 'game', step: 1, subFlow: null, data: {} }; }
+        else if (message.includes('Just chatting')) { newFlowState = { current: null, step: 0, subFlow: null, data: {} }; }
+        
+        let updatedApiHistory;
+
+        if (newFlowState.current) {
+            const flowResponse = handleFlow(message, newFlowState);
+            if (flowResponse) {
+                addMessageToList('casper', flowResponse.message);
+
+                const nonRepeatPrompts = ["Aiyo! I need a proper number for height, Boss. What's your current height in **(cm)**?", "Aiyo! I need a proper number for weight, Boss. What's your current weight in **(kg)**?", "Aiyo! I need a proper number for age, Boss. How old are you?"];
+                const isReprompt = nonRepeatPrompts.includes(flowResponse.message);
+                
+                updatedApiHistory = [...apiChatHistory, { role: "user", parts: [{ text: flowResponse.prompt || message }] }];
+                if (flowResponse.triggerAPI || !isReprompt) {
+                    updatedApiHistory.push({ role: "model", parts: [{ text: flowResponse.message }] });
+                }
+                setApiChatHistory(updatedApiHistory);
+
+                if (flowResponse.suggestions) setSuggestions(flowResponse.suggestions);
+
+                if (flowResponse.triggerAPI) {
+                    callGeminiAPI(updatedApiHistory, flowResponse.useGrounding);
+                } else {
+                    setEyeState('default');
+                }
+                return;
+            }
+        }
+        
+        updatedApiHistory = [...apiChatHistory, { role: "user", parts: [{ text: message }] }];
+        setApiChatHistory(updatedApiHistory);
+        callGeminiAPI(updatedApiHistory, false);
+
+    }, [isCasperTyping, flowState, apiChatHistory, handleFlow, callGeminiAPI]);
+
+    const startChat = () => {
+        triggerHapticFeedback(100);
+        nameInputRef.current?.blur();
+        const name = nameInputValue.trim();
+        if (!name) {
+            return;
+        }
+
+        if (name.toLowerCase().includes('abhinand')) {
+            setIsCreator(true);
+            setUserName(name);
+            setShowSplash(false);
+            
+            const welcomeMsg = `Welcome back, Creator! 👑 It's an honor. Systems are online and at your command. What shall we build today, Abhinand Boss? 🔥`;
+            addMessageToList('casper', welcomeMsg);
+            setApiChatHistory([{ role: "model", parts: [{ text: welcomeMsg }] }]);
+            setSuggestions(initialSuggestions);
+            setEyeState('happy');
+        } else {
+            setUserName(name);
+            setShowSplash(false);
+            
+            const welcomeMsg = `Nice to meet you, ${name} Boss! 👻 Enthanu parupadi? What's on your mind?`;
+            addMessageToList('casper', welcomeMsg);
+            setApiChatHistory([{ role: "model", parts: [{ text: welcomeMsg }] }]);
+            setSuggestions(initialSuggestions);
+            setEyeState('happy');
+        }
+    };
+    
+    const handleResetChat = () => {
+        triggerHapticFeedback();
+        const welcomeMsg = isCreator 
+            ? `Alright, Creator. Fresh slate. Let's go again! 🔥`
+            : `Okay, ${userName} Boss. Let's start over! What's up?`;
+
+        setMessages([{ sender: 'casper', text: welcomeMsg }]);
+        setApiChatHistory([{ role: "model", parts: [{ text: welcomeMsg }] }]);
+        setFlowState({ current: null, step: 0, subFlow: null, data: {} });
+        setSuggestions(initialSuggestions);
+        setIsCasperTyping(false);
+        setUserInputValue('');
+        setEyeState('default');
+        if (chatLogRef.current) {
+            chatLogRef.current.scrollTop = 0;
+        }
+    };
+
+    const handleGoHome = () => {
+        triggerHapticFeedback();
+        setShowSplash(true);
+        setUserName('');
+        setNameInputValue('');
+        setMessages([]);
+        setApiChatHistory([]);
+        setFlowState({ current: null, step: 0, subFlow: null, data: {} });
+        setSuggestions([]);
+        setIsCasperTyping(false);
+        setUserInputValue('');
+        setEyeState('default');
+        setSplashEyeState('default');
+        setIsCreator(false);
+    };
+
+    const handleSend = () => {
+        if (userInputValue.trim()) {
+            triggerHapticFeedback();
+            handleUserInput(userInputValue);
+            setUserInputValue('');
+        }
+    };
+
+    return (
+        React.createElement(React.Fragment, null,
+            React.createElement('canvas', { id: 'gradient-canvas', ref: canvasRef }),
+            
+            showSplash ? (
+                React.createElement('div', { id: 'splash-screen', style: { display: 'flex' } },
+                    React.createElement(CasperEyes, { id: 'splash-eyes', eyeState: splashEyeState, pupilLeftRef: pupilLeftRef, pupilRightRef: pupilRightRef }),
+                    React.createElement('div', { id: 'casper-quote' },
+                        "\"Your Friendly, Neighborhood Companion. Let's build something epic\""
+                    ),
+                    React.createElement('h1', null, "Hey there! I'm Casper 👻"),
+                    React.createElement('div', { id: 'splash-input-group', ref: splashInputGroupRef },
+                        React.createElement('div', { className: 'input-wrapper' },
+                            React.createElement('input', {
+                                ref: nameInputRef,
+                                type: 'text',
+                                id: 'name-input',
+                                placeholder: 'What should I call you, Boss?',
+                                autoComplete: 'off',
+                                value: nameInputValue,
+                                onChange: (e) => setNameInputValue(e.target.value),
+                                onKeyPress: (e) => e.key === 'Enter' && startChat(),
+                                onFocus: () => setSplashEyeState('typing'),
+                                onBlur: () => setSplashEyeState('default')
+                            })
+                        ),
+                        React.createElement('button', { id: 'start-chat-btn', 'aria-label': 'Start Chat', onClick: startChat },
+                            "Start",
+                            React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', width: '18', height: '18', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2.5', strokeLinecap: 'round', strokeLinejoin: 'round', className: 'ml-2' },
+                                React.createElement('polyline', { points: '12 20 20 12 20 12 12 4' }), React.createElement('line', { x1: '4', y1: '12', x2: '20', y2: '12' })
+                            )
+                        )
+                    ),
+                    React.createElement('p', { id: 'creator-credit' }, "© Abhinand")
+                )
+            ) : (
+                React.createElement('main', { id: 'main-chat-ui', ref: mainChatUiRef, className: isCreator ? 'creator-mode' : '', style: { display: 'flex' } },
+                    React.createElement('div', { id: 'casper-face' },
+                        React.createElement('button', { id: 'home-btn', 'aria-label': 'Go Home', onClick: handleGoHome },
+                            React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', width: '20', height: '20', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' },
+                                React.createElement('path', { d: 'm3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' }), React.createElement('polyline', { points: '9 22 9 12 15 12 15 22' })
+                            )
+                        ),
+                        React.createElement(CasperEyes, { id: 'casper-eyes', eyeState: eyeState, pupilLeftRef: pupilLeftRef, pupilRightRef: pupilRightRef }),
+                        React.createElement('button', { id: 'reset-btn', 'aria-label': 'Reset Chat', onClick: handleResetChat },
+                            React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', width: '20', height: '20', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' },
+                                React.createElement('path', { d: 'M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }),
+                                React.createElement('path', { d: 'M3 3v5h5' }),
+                                React.createElement('path', { d: 'M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16' }),
+                                React.createElement('path', { d: 'M21 21v-5h-5' })
+                            )
+                        )
+                    ),
+                    React.createElement('div', { id: 'chat-log', ref: chatLogRef },
+                        messages.map((msg, index) => (
+                            React.createElement('div', { key: index, className: `chat-message ${msg.sender}` },
+                                msg.sender === 'user' 
+                                    ? React.createElement('div', { dangerouslySetInnerHTML: { __html: msg.text.replace(/\n/g, '<br>') } })
+                                    : React.createElement(MessageContent, { text: msg.text })
+                            )
+                        )),
+                        isCasperTyping && (
+                            React.createElement('div', { className: 'chat-message casper loading' },
+                                React.createElement('div', { className: 'dot' }), React.createElement('div', { className: 'dot' }), React.createElement('div', { className: 'dot' })
+                            )
+                        )
+                    ),
+                    suggestions.length > 0 && (
+                        React.createElement('div', { id: 'suggested-replies' },
+                            suggestions.map((s, index) => {
+                                if (s.type === 'link') {
+                                    return (
+                                        React.createElement('a', { key: s.text, href: s.url, target: '_blank', rel: 'noopener noreferrer', className: 'suggestion-card link-card', style: {animationDelay: `${index * 0.05}s`} },
+                                            s.text
+                                        )
+                                    );
+                                }
+                                return (
+                                    React.createElement('button', { key: s.text, className: 'suggestion-card', onClick: (e) => { 
+                                        e.currentTarget.blur();
+                                        triggerHapticFeedback();
+                                        handleUserInput(s.text); 
+                                    }, style: {animationDelay: `${index * 0.05}s`} },
+                                        s.text
+                                    )
+                                );
+                            })
+                        )
+                    ),
+                    React.createElement('div', { id: 'input-area', ref: inputAreaRef },
+                        React.createElement('input', {
+                            ref: userInputRef,
+                            type: 'text',
+                            id: 'user-input',
+                            placeholder: 'Chat with Casper...',
+                            autoComplete: 'off',
+                            value: userInputValue,
+                            onChange: (e) => setUserInputValue(e.target.value),
+                            onKeyPress: (e) => e.key === 'Enter' && handleSend(),
+                            onFocus: () => setEyeState('typing'),
+                            onBlur: () => setEyeState('default')
+                        }),
+                        React.createElement('button', { id: 'send-btn', 'aria-label': 'Send message', onClick: handleSend },
+                            React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', width: '24', height: '24', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round', className: 'w-6 h-6' },
+                                React.createElement('line', { x1: '22', y1: '2', x2: '11', y2: '13' }),
+                                React.createElement('polygon', { points: '22 2 15 22 11 13 2 9 22 2' })
+                            )
+                        )
+                    )
+                )
+            ),
+
+            error && (
+                React.createElement('div', { id: 'error-modal', className: 'visible' },
+                    React.createElement('div', { id: 'error-modal-content' },
+                        React.createElement('h3', { className: 'text-xl font-bold mb-2' }, "Ayo!"),
+                        React.createElement('p', { id: 'error-message' }, error),
+                        React.createElement('button', { id: 'error-close-btn', onClick: () => setError(null) }, "Got it, Boss")
+                    )
+                )
+            )
+        )
+    );
+};
+
+// --- End of App.tsx content ---
+
+
+// --- Start of index.tsx content ---
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error("Could not find root element to mount to");
+}
+
+const root = ReactDOM.createRoot(rootElement);
+root.render(
+  React.createElement(React.StrictMode, null, React.createElement(App))
+);
+// --- End of index.tsx content ---
+
+    </script>
+</body>
+</html>
