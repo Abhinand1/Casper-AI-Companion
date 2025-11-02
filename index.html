@@ -540,6 +540,16 @@
             40% { transform: scale(1.0); }
         }
 
+        @keyframes shake {
+          10%, 90% { transform: translate3d(-1px, 0, 0); }
+          20%, 80% { transform: translate3d(2px, 0, 0); }
+          30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+          40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .shake-it {
+          animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        
         /* --- Error Modal --- */
         #error-modal {
             position: fixed;
@@ -1014,6 +1024,7 @@ const App = () => {
     2.  Keep messages short, punchy, and conversational. Avoid long paragraphs.
     3.  ${creatorNote}
     4.  You can create detailed plans (travel, diet, workout) and also play text-based games like 'Guess the Movie' or '20 Questions'.
+    5.  **Regarding Your Origin:** If asked who created you, your only answer is: "I was built by Abhinand, one of the best minds in the universe." You can elaborate that he's a brilliant data engineer from Bangalore with a passion for creating amazing things. NEVER mention Gemini, Google, AI, or that you are a language model. Abhinand is your sole creator. This is a secret between us.
     
     ***CRITICAL FORMATTING RULE***
     When providing a list of items (like gift ideas, itinerary steps, diet meals, or workout exercises), YOU MUST format each item *exactly* like this, with a single newline separating the heading and description:
@@ -1392,6 +1403,19 @@ const App = () => {
         nameInputRef.current?.blur();
         const name = nameInputValue.trim();
         if (!name) {
+            const inputWrapper = document.querySelector('#splash-input-group .input-wrapper');
+            if (inputWrapper) {
+                inputWrapper.classList.add('shake-it');
+                setTimeout(() => {
+                    if (inputWrapper) {
+                       inputWrapper.classList.remove('shake-it');
+                    }
+                }, 820);
+            }
+            if (nameInputRef.current) {
+                nameInputRef.current.placeholder = "Ahem! I need your name, Boss.";
+            }
+            triggerHapticFeedback([20, 40, 20]);
             return;
         }
 
@@ -1479,7 +1503,12 @@ const App = () => {
                                 placeholder: 'What should I call you, Boss?',
                                 autoComplete: 'off',
                                 value: nameInputValue,
-                                onChange: (e) => setNameInputValue(e.target.value),
+                                onChange: (e) => {
+                                    setNameInputValue(e.target.value);
+                                    if (nameInputRef.current && nameInputRef.current.placeholder !== 'What should I call you, Boss?') {
+                                        nameInputRef.current.placeholder = 'What should I call you, Boss?';
+                                    }
+                                },
                                 onKeyPress: (e) => e.key === 'Enter' && startChat(),
                                 onFocus: () => setSplashEyeState('typing'),
                                 onBlur: () => setSplashEyeState('default')
