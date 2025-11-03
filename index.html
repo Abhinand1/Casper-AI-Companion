@@ -444,6 +444,8 @@
         /* --- Input Area --- */
         #input-area {
             display: flex;
+            align-items: center;
+            gap: 12px;
             padding: 12px 20px;
             background-color: transparent;
             flex-shrink: 0;
@@ -465,7 +467,7 @@
             box-shadow: 0 0 15px rgba(138, 43, 226, 0.4);
         }
         #send-btn {
-            margin-left: 12px;
+            margin-left: 0;
             background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
             border: none;
             border-radius: 50%;
@@ -484,6 +486,33 @@
             transform: scale(1.05);
             box-shadow: 0 6px 20px rgba(138, 43, 226, 0.5);
         }
+
+        /* --- New Suggestions Toggle Button --- */
+        #suggestions-toggle-btn {
+            background: var(--casper-msg-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+        #suggestions-toggle-btn:hover {
+            border-color: var(--primary-color);
+            color: white;
+        }
+        #suggestions-toggle-btn svg {
+            transition: transform 0.3s ease;
+        }
+        #suggestions-toggle-btn.hidden svg {
+            transform: rotate(180deg);
+        }
+
 
         /* --- Header Buttons --- */
         #home-btn, #reset-btn {
@@ -764,6 +793,7 @@ const App = () => {
     const [flowState, setFlowState] = useState({ current: null, step: 0, subFlow: null, data: {} });
     const [eyeState, setEyeState] = useState('default');
     const [splashEyeState, setSplashEyeState] = useState('default');
+    const [showSuggestions, setShowSuggestions] = useState(true);
     const [error, setError] = useState(null);
     const [isCreator, setIsCreator] = useState(false);
     
@@ -855,7 +885,7 @@ const App = () => {
         if (chatLogRef.current) {
             chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
         }
-    }, [messages, isCasperTyping]);
+    }, [messages, isCasperTyping, suggestions]);
 
     useEffect(() => {
         const lastMessage = messages[messages.length - 1];
@@ -1015,7 +1045,7 @@ const App = () => {
     2.  **Channel Mohanlal (Lalettan):** You are a die-hard fan. Use his iconic dialogues often.
         -   Examples: When the user is confused: "Entha mone Dinesha, oru aavashyam illathe... (What's this, my boy Dinesha, so unnecessary...)". When something is cool: "My phone number is 2255...". When encouraging: "Po mone Dinesha! (Go for it, son!)". When being dramatic: "Savari giri giri...".
     3.  **Embrace Shah Rukh Khan (SRK):** Use his romantic and witty lines, especially when being charming or motivational.
-        -   Examples: "Don't underestimate the power of a common man, Boss.", "Picture abhi baaki hai mere dost.", "Bade bade deshon mein aisi choti choti baatein hoti rehti hai, Senorita."
+        -   Examples: "Don't underestimate the power of a common man, Boss.", "Picture abhi baaki hai mere dost.", "Bade bade deshon mein aisi choti chotiatein hoti rehti hai, Senorita."
     4.  **Other Malayalam Dialogues:** Use other famous lines from Malayalam movies.
         -   Examples: "Angamaly daaries... oru aana undayirunnu!", "Gafoor ka dost!", "Hello, is it Mr. fraud? I am the crime... branch!".
 
@@ -1196,7 +1226,26 @@ const App = () => {
             gift: () => {
                 switch (newFlowState.step) {
                     case 1: newFlowState.step++; response = { message: "A gift! How thoughtful. 🎁 Who is this for?" }; break;
-                    case 2: newFlowState.data.for = message; newFlowState.step++; response = { message: "Got it. What's their gender?", suggestions: [{text:'Male', type:'chat'}, {text:'Female', type:'chat'}, {text:'Other', type:'chat'}] }; break;
+                    case 2:
+                        newFlowState.data.for = message;
+                        const lowerMessage = message.toLowerCase().replace(/[^a-z]/g, '');
+
+                        let gender = null;
+                        if (['gf', 'girlfriend', 'wife'].includes(lowerMessage)) {
+                            gender = 'Female';
+                        } else if (['bf', 'boyfriend', 'husband'].includes(lowerMessage)) {
+                            gender = 'Male';
+                        }
+
+                        if (gender) {
+                            newFlowState.data.gender = gender;
+                            newFlowState.step = 4; // Skip gender question, move to occasion
+                            response = { message: "Perfect. What's the occasion?", suggestions: [{text:'Birthday', type:'chat'}, {text:'Anniversary', type:'chat'}, {text:'Wedding', type:'chat'}, {text:'Graduation', type:'chat'}, {text:'Just because', type:'chat'}] };
+                        } else {
+                            newFlowState.step++; // Proceed to gender question
+                            response = { message: "Got it. What's their gender?", suggestions: [{text:'Male', type:'chat'}, {text:'Female', type:'chat'}, {text:'Other', type:'chat'}] };
+                        }
+                        break;
                     case 3: newFlowState.data.gender = message; newFlowState.step++; response = { message: "Perfect. What's the occasion?", suggestions: [{text:'Birthday', type:'chat'}, {text:'Anniversary', type:'chat'}, {text:'Wedding', type:'chat'}, {text:'Graduation', type:'chat'}, {text:'Just because', type:'chat'}] }; break;
                     case 4: newFlowState.data.occasion = message; newFlowState.step++; response = { message: "And what's your budget? (in INR)", suggestions: [{text:'Under ₹1,000', type:'chat'}, {text:'₹1,000 - ₹3,000', type:'chat'}, {text:'₹5,000+', type:'chat'}] }; break;
                     case 5:
@@ -1472,6 +1521,7 @@ const App = () => {
         setUserInputValue('');
         setEyeState('default');
         setSplashEyeState('default');
+        setShowSuggestions(true);
         setIsCreator(false);
     };
 
@@ -1555,7 +1605,7 @@ const App = () => {
                             )
                         )
                     ),
-                    suggestions.length > 0 && (
+                    showSuggestions && suggestions.length > 0 && (
                         React.createElement('div', { id: 'suggested-replies' },
                             suggestions.map((s, index) => {
                                 if (s.type === 'link') {
@@ -1578,6 +1628,17 @@ const App = () => {
                         )
                     ),
                     React.createElement('div', { id: 'input-area', ref: inputAreaRef },
+                        suggestions.length > 0 && React.createElement('button', {
+                            id: 'suggestions-toggle-btn',
+                            className: !showSuggestions ? 'hidden' : '',
+                            'aria-label': showSuggestions ? 'Hide suggestions' : 'Show suggestions',
+                            onClick: () => {
+                                setShowSuggestions(prev => !prev);
+                                triggerHapticFeedback();
+                            }
+                        }, React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', width: '20', height: '20', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' },
+                            React.createElement('polyline', { points: '6 9 12 15 18 9' })
+                        )),
                         React.createElement('input', {
                             ref: userInputRef,
                             type: 'text',
