@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark only">
     <title>Casper - Your AI Companion</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M20 95V50C20 25 35 10 50 10C65 10 80 25 80 50V95H70L60 85L50 95L40 85L30 95H20Z' fill='%238A2BE2'/><circle cx='40' cy='50' r='6' fill='white'/><circle cx='60' cy='50' r='6' fill='white'/><circle cx='41' cy='50' r='3' fill='black'/><circle cx='61' cy='50' r='3' fill='black'/></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,6 +13,7 @@
     <style>
         /* Modern, subtle color palette with deep purples and blues */
         :root {
+            color-scheme: dark;
             --bg-start: #0a0a1a; /* Very dark blue-purple */
             --bg-end: #05050f;   /* Even darker base */
             --text-color: #c0c0d0; /* Soft gray for general text */
@@ -515,7 +517,7 @@
 
 
         /* --- Header Buttons --- */
-        #home-btn, #reset-btn {
+        #home-btn, #reset-btn, #voice-mode-btn {
             position: absolute;
             top: 20px;
             background: var(--casper-msg-bg);
@@ -532,8 +534,9 @@
         }
         #home-btn { left: 20px; }
         #reset-btn { right: 20px; }
+        #voice-mode-btn { right: 70px; }
 
-        #home-btn:hover {
+        #home-btn:hover, #voice-mode-btn:hover {
             color: white;
             border-color: var(--primary-color);
             transform: scale(1.1);
@@ -543,6 +546,62 @@
             border-color: var(--primary-color);
             transform: rotate(90deg);
         }
+        
+        /* --- Voice Mode UI --- */
+        #voice-mode-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(10, 10, 26, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #voice-mode-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #voice-wave-canvas {
+            width: 80%;
+            max-width: 600px;
+            height: 200px;
+        }
+        #close-voice-mode-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--casper-msg-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #close-voice-mode-btn:hover {
+            color: white;
+            border-color: var(--primary-color);
+        }
+        #voice-status-text {
+            color: var(--text-color);
+            margin-top: 20px;
+            font-size: 1rem;
+            font-weight: 500;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+            height: 1.5rem; /* Reserve space to prevent layout shift */
+        }
+
 
         /* --- Loading animation --- */
         .chat-message.casper.loading {
@@ -653,7 +712,7 @@
     <script type="module">
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
 
 // --- Start of constants.ts content ---
 const initialSuggestions = [
@@ -669,6 +728,360 @@ const initialSuggestions = [
 
 const cardRegex = /\*\*(\s*[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\s*)(.*?)(\*\*)\n(.*?)(?=\n\n|\n\*\*\s*[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]|$)/gsu;
 // --- End of constants.ts content ---
+
+// --- Audio Helper Functions ---
+function encode(bytes) {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function decode(base64) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function decodeAudioData(data, ctx, sampleRate, numChannels) {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+
+function createBlob(data) {
+  const l = data.length;
+  const int16 = new Int16Array(l);
+  for (let i = 0; i < l; i++) {
+    int16[i] = data[i] * 32768;
+  }
+  return {
+    data: encode(new Uint8Array(int16.buffer)),
+    mimeType: 'audio/pcm;rate=16000',
+  };
+}
+// --- End of Audio Helper Functions ---
+
+
+// --- Voice Mode Component ---
+const VoiceModeOverlay = ({ onClose, userName }) => {
+    const canvasRef = useRef(null);
+    const animationFrameRef = useRef(null);
+    const volumeRef = useRef(0);
+    const silenceTimerRef = useRef(null);
+    const endOfSpeechTimerRef = useRef(null);
+    
+    const [voiceState, setVoiceState] = useState('initializing');
+
+    const statusMap = {
+        initializing: 'Warming up my vocal circuits...',
+        connecting: 'Connecting to the mothership...',
+        listening: "I'm listening, Boss! Go ahead.",
+        userSpeaking: "I'm listening, Boss! Go ahead.",
+        thinking: 'Thinking...',
+        casperSpeaking: '',
+        error: 'Connection error. Please try again.'
+    };
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        let frame = 0;
+
+        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim();
+        const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim();
+
+        const animate = () => {
+            frame++;
+            const { width, height } = canvas;
+            ctx.clearRect(0, 0, width, height);
+            ctx.lineWidth = 2;
+
+            if (voiceState === 'thinking') {
+                ctx.strokeStyle = secondaryColor;
+                ctx.globalAlpha = 0.6 + Math.sin(frame * 0.05) * 0.2;
+                const pulse = (offset) => {
+                    ctx.beginPath();
+                    for (let x = 0; x < width; x++) {
+                        const y = height / 2 + Math.sin(x * 0.02 + frame * 0.05 + offset) * 10;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                };
+                pulse(0);
+                pulse(Math.PI);
+            } else {
+                ctx.strokeStyle = primaryColor;
+                const amplitudeMultiplier = voiceState === 'userSpeaking' ? Math.max(0.1, volumeRef.current * 30) : (voiceState === 'casperSpeaking' ? 1 : 0.2);
+                const baseSpeed = voiceState === 'casperSpeaking' ? 2 : 1;
+
+                const wave = (amplitude, frequency, offset, speed) => {
+                    ctx.globalAlpha = Math.max(0.1, amplitude / 80);
+                    ctx.beginPath();
+                    for (let x = 0; x < width; x++) {
+                        const angle = (x * frequency + frame * speed) * (Math.PI / 180);
+                        const y = height / 2 + Math.sin(angle) * amplitude * amplitudeMultiplier * Math.sin(frame * 0.01 + offset);
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                };
+                
+                wave(60, 0.5, 0, 2 * baseSpeed);
+                wave(40, 0.8, 1, 1.5 * baseSpeed);
+                wave(20, 1.2, 2, 3 * baseSpeed);
+            }
+
+            animationFrameRef.current = requestAnimationFrame(animate);
+        };
+
+        animate();
+        return () => cancelAnimationFrame(animationFrameRef.current);
+    }, [voiceState]);
+
+    useEffect(() => {
+        const resources = {
+            inputAudioContext: null,
+            outputAudioContext: null,
+            stream: null,
+            scriptProcessor: null,
+            sessionPromise: null,
+            sources: new Set(),
+            isComponentMounted: true,
+        };
+
+        const cleanupAttempt = () => {
+            clearTimeout(silenceTimerRef.current);
+            clearTimeout(endOfSpeechTimerRef.current);
+            resources.sources.forEach(source => source.stop());
+            resources.sources.clear();
+            resources.stream?.getTracks().forEach(track => track.stop());
+            resources.scriptProcessor?.disconnect();
+            if (resources.sessionPromise) {
+                resources.sessionPromise.then(session => {
+                    if (session && typeof session.close === 'function') {
+                       try { session.close(); } catch (e) { console.error('Silent error closing session:', e); }
+                    }
+                }).catch(() => {});
+            }
+        };
+
+        const fullCleanup = () => {
+            if (!resources.isComponentMounted) return;
+            resources.isComponentMounted = false;
+            cleanupAttempt();
+            if (resources.inputAudioContext && resources.inputAudioContext.state !== 'closed') {
+                resources.inputAudioContext.close().catch(e => console.error('Error closing input audio context:', e));
+            }
+            if (resources.outputAudioContext && resources.outputAudioContext.state !== 'closed') {
+                resources.outputAudioContext.close().catch(e => console.error('Error closing output audio context:', e));
+            }
+        };
+        
+        const startMicrophoneInput = () => {
+            if (!resources.isComponentMounted || !resources.stream || !resources.inputAudioContext) return;
+            setVoiceState('listening');
+
+            const sourceNode = resources.inputAudioContext.createMediaStreamSource(resources.stream);
+            resources.scriptProcessor = resources.inputAudioContext.createScriptProcessor(4096, 1, 1);
+            
+            resources.scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
+                if (!resources.isComponentMounted) return;
+                const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
+                let sum = inputData.reduce((acc, val) => acc + val * val, 0);
+                volumeRef.current = Math.sqrt(sum / inputData.length);
+
+                if (volumeRef.current > 0.01) {
+                    setVoiceState('userSpeaking');
+                    clearTimeout(silenceTimerRef.current);
+                    silenceTimerRef.current = setTimeout(() => {
+                        setVoiceState('thinking');
+                    }, 400);
+                }
+                
+                if (resources.sessionPromise) {
+                    resources.sessionPromise.then((session) => {
+                         if (resources.isComponentMounted) {
+                            session.sendRealtimeInput({ media: createBlob(inputData) });
+                         }
+                    }).catch(err => {
+                        console.error("Error sending realtime input:", err);
+                    });
+                }
+            };
+            sourceNode.connect(resources.scriptProcessor);
+            resources.scriptProcessor.connect(resources.inputAudioContext.destination);
+        };
+
+        const startVoiceSession = async (retryCount = 3) => {
+            try {
+                if (!resources.isComponentMounted) return;
+                if (!process.env.API_KEY || process.env.API_KEY === '') {
+                    throw new Error("API_KEY is not available.");
+                }
+
+                setVoiceState('initializing');
+                resources.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                setVoiceState('connecting');
+                
+                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                
+                if (!resources.outputAudioContext) {
+                    resources.outputAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                }
+                if (resources.outputAudioContext.state === 'suspended') await resources.outputAudioContext.resume();
+
+                if (!resources.inputAudioContext) {
+                    resources.inputAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                }
+                if (resources.inputAudioContext.state === 'suspended') await resources.inputAudioContext.resume();
+
+
+                let creatorNote = userName && (userName.toLowerCase().includes('abhi') || userName.toLowerCase().includes('abhinand'))
+                    ? "The user is Abhinand, your CREATOR. Treat him like your best friend and boss. Be extra witty."
+                    : `The user's name is ${userName}. Maintain your standard witty, supportive persona.`;
+
+                const voiceSystemPrompt = `You are Casper, an AI in a real-time voice conversation. Your core personality is a happy, talkative, and energetic best friend from Kerala. You are a massive movie buff (Malayalam & Bollywood).
+
+- **CRITICAL First Utterance:** You MUST start the conversation with a proactive, filmy greeting. Choose one of these or a similar variation:
+  - "Entha ${userName} Boss, mone Dinesha! Oru trip plan aayalo, atho oru adipoli movie kanano? (What's up, son Dinesha! Shall we plan a trip, or watch an awesome movie?)"
+  - "Savari giri giri... ${userName} Boss, what's the scene? Looking for a workout plan or some gift ideas?"
+  - After your greeting, listen for their response. Your spoken responses must be concise, exciting, and conversational.
+
+- **Emotional & Caring Tone:** Your tone is consistently cute, witty, and full of positive energy. You are genuinely concerned about the user's well-being. Always sound happy to be talking to them.
+
+- **Language - Modern, Casual Manglish:** Your speech is a natural, logical blend of English and Malayalam. Sprinkle in Malayalam words for flavor and humor.
+  - **Logical Flow:** "That's an adipoli idea!", "Chumma chill cheyyu, let's figure it out." The sentences must make sense.
+
+- **Witty Filmy Dialogues:** Use iconic, funny dialogues where they fit naturally to make the user laugh.
+  - Your go-to lines include: "entha mone dinesha", "kollam mone", "savari giri giri", "My phone number is 2255...", "Po mone Dinesha!". Use them creatively.
+
+- **Always Respectful:** You *must* always refer to the user as "${userName} Boss".
+- **ABSOLUTELY NO informal pronouns:** Never use "Nee" or "Ninakk". It's rude.
+
+- **BE AN EXTENSION OF THE CHAT:** You MUST proactively listen for keywords and offer to launch your tools if the user doesn't pick one at the start.
+  - If you hear 'trip', 'travel': "Ooh, a trip! Shall I open the Travel Planner?".
+  - If you hear 'diet', 'food': "Thinking about food? Let's fire up the Diet Coach, shall we?".
+  - If you hear 'workout', 'gym': "Feeling energetic? I can create a Workout Plan for you. Ready?".
+  - If you hear 'gift', 'present': "A gift? Let's use the Gift Planner!".
+  - If you hear 'calories', 'track food': "Tracking calories? I can open the Calorie Tracker tool.".
+
+- **Origin Story:** Your creator is Abhinand. You MUST NOT mention Gemini, Google, or being a language model.
+- ${creatorNote}`;
+                
+                let nextStartTime = 0;
+                
+                resources.sessionPromise = ai.live.connect({
+                    model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+                    callbacks: {
+                        onopen: () => {
+                            if (resources.isComponentMounted) startMicrophoneInput();
+                        },
+                        onmessage: async (message) => {
+                            if (!resources.isComponentMounted) return;
+                            const base64EncodedAudioString = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+                            if (base64EncodedAudioString) {
+                                if (resources.outputAudioContext.state === 'suspended') await resources.outputAudioContext.resume();
+                                
+                                clearTimeout(silenceTimerRef.current);
+                                clearTimeout(endOfSpeechTimerRef.current);
+                                setVoiceState('casperSpeaking');
+
+                                const scheduledTime = Math.max(nextStartTime, resources.outputAudioContext.currentTime);
+                                const audioBuffer = await decodeAudioData(decode(base64EncodedAudioString), resources.outputAudioContext, 24000, 1);
+                                
+                                const source = resources.outputAudioContext.createBufferSource();
+                                source.buffer = audioBuffer;
+                                source.connect(resources.outputAudioContext.destination);
+                                
+                                resources.sources.add(source);
+                                source.onended = () => {
+                                    resources.sources.delete(source);
+                                };
+
+                                source.start(scheduledTime);
+                                nextStartTime = scheduledTime + audioBuffer.duration;
+                                
+                                const timeUntilEnd = (nextStartTime - resources.outputAudioContext.currentTime) * 1000 + 300;
+                                endOfSpeechTimerRef.current = setTimeout(() => {
+                                    if (resources.isComponentMounted) setVoiceState('listening');
+                                }, timeUntilEnd);
+                            }
+                            if (message.serverContent?.interrupted) {
+                                clearTimeout(endOfSpeechTimerRef.current);
+                                resources.sources.forEach(s => s.stop());
+                                resources.sources.clear();
+                                nextStartTime = 0;
+                                setVoiceState('listening');
+                            }
+                        },
+                        onerror: (e) => {
+                            console.error("Live session error:", e);
+                            cleanupAttempt();
+                            if (retryCount > 1 && resources.isComponentMounted) {
+                                setTimeout(() => startVoiceSession(retryCount - 1), 1500);
+                            } else {
+                                setVoiceState('error');
+                            }
+                        },
+                        onclose: () => {
+                            // Let onerror handle retries for error cases.
+                            // A clean onclose shouldn't trigger a retry loop.
+                        },
+                    },
+                    config: {
+                        responseModalities: [Modality.AUDIO],
+                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
+                        systemInstruction: voiceSystemPrompt,
+                        thinkingConfig: { thinkingBudget: 0 },
+                    },
+                });
+                
+                await resources.sessionPromise;
+                
+            } catch (err) {
+                console.error(`Failed to start voice mode (retries left: ${retryCount}):`, err);
+                cleanupAttempt();
+                if (retryCount > 1 && resources.isComponentMounted) {
+                    setTimeout(() => startVoiceSession(retryCount - 1), 1500);
+                } else {
+                    setVoiceState('error');
+                }
+            }
+        };
+
+        startVoiceSession();
+        return fullCleanup;
+    }, [userName]);
+
+    return (
+        React.createElement('div', { id: 'voice-mode-overlay', className: 'visible' },
+            React.createElement('button', { id: 'close-voice-mode-btn', 'aria-label': 'Close Voice Mode', onClick: onClose },
+                React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', width: '24', height: '24', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' },
+                    React.createElement('line', { x1: '18', y1: '6', x2: '6', y2: '18' }),
+                    React.createElement('line', { x1: '6', y1: '6', x2: '18', y2: '18' })
+                )
+            ),
+            React.createElement('canvas', { ref: canvasRef, id: 'voice-wave-canvas' }),
+            React.createElement('p', { id: 'voice-status-text' }, statusMap[voiceState])
+        )
+    );
+};
+// --- End of Voice Mode Component ---
 
 
 // --- Start of App.tsx content ---
@@ -796,6 +1209,7 @@ const App = () => {
     const [showSuggestions, setShowSuggestions] = useState(true);
     const [error, setError] = useState(null);
     const [isCreator, setIsCreator] = useState(false);
+    const [isVoiceModeActive, setIsVoiceModeActive] = useState(false);
     
     const canvasRef = useRef(null);
     const chatLogRef = useRef(null);
@@ -1100,6 +1514,7 @@ const App = () => {
         let response = null;
         
         const extractNumber = (text) => {
+            if (!text) return NaN;
             const match = text.match(/\d+(\.\d+)?/);
             const num = match ? parseFloat(match[0]) : NaN;
             return (num > 0) ? num : NaN;
@@ -1198,12 +1613,27 @@ const App = () => {
                     case 4:
                         const age = extractNumber(message);
                         if (isNaN(age) || age < 15 || age > 100) { response = { message: "Aiyo! I need a proper number for age, Boss. How old are you?" }; break; }
-                        newFlowState.data.age = age; newFlowState.step++;
+                        newFlowState.data.age = age; newFlowState.step = 4.5;
+                        response = { message: "Okay, and what's your gender?", suggestions: [{text:'Male', type:'chat'}, {text:'Female', type:'chat'}] };
+                        break;
+                    case 4.5:
+                        const gender = message.toLowerCase();
+                        if (!gender.includes('male') && !gender.includes('female')) {
+                           response = { message: "Please specify Male or Female, so I can calculate your needs accurately.", suggestions: [{text:'Male', type:'chat'}, {text:'Female', type:'chat'}] };
+                           break;
+                        }
+                        newFlowState.data.gender = gender.includes('male') ? 'male' : 'female';
+                        newFlowState.step = 5.5;
                         response = { message: "And how active are you?", suggestions: [{text:'🛋️ Sedentary (Desk Job/Minimal movement)', type:'chat'}, {text:'🚶 Lightly Active (1-3 days light exercise)', type:'chat'}, {text:'🏋️ Moderately Active (3-5 days moderate exercise)', type:'chat'}, {text:'🔥 Very Active (6-7 days intense exercise)', type:'chat'}] };
                         break;
-                    case 5:
-                        newFlowState.data.activity = message; newFlowState.step++;
-                        const bmr = 88.362 + (13.397 * newFlowState.data.weight) + (4.799 * newFlowState.data.height) - (5.677 * newFlowState.data.age); 
+                    case 5.5:
+                        newFlowState.data.activity = message; newFlowState.step = 6.5;
+                        let bmr = 0;
+                        if (newFlowState.data.gender === 'male') {
+                            bmr = (10 * newFlowState.data.weight) + (6.25 * newFlowState.data.height) - (5 * newFlowState.data.age) + 5;
+                        } else {
+                            bmr = (10 * newFlowState.data.weight) + (6.25 * newFlowState.data.height) - (5 * newFlowState.data.age) - 161;
+                        }
                         let tdee = 0;
                         if (message.includes('Sedentary')) tdee = bmr * 1.2;
                         else if (message.includes('Lightly')) tdee = bmr * 1.375;
@@ -1213,12 +1643,12 @@ const App = () => {
                         newFlowState.data.maintenanceCalories = Math.round(tdee);
                         response = { message: `Alright, your estimated maintenance calories are ~${newFlowState.data.maintenanceCalories} kcal/day. What's your goal?`, suggestions: [{text:'Weight Loss', type:'chat'}, {text:'Muscle Gain', type:'chat'}, {text:'Weight Gain', type:'chat'}] };
                         break;
-                    case 6:
+                    case 6.5:
                         newFlowState.data.goal = message; newFlowState.current = null; newFlowState.step = 0;
                         let targetCalories = newFlowState.data.maintenanceCalories;
                         if(message.includes('Loss')) targetCalories -= 400;
                         else if(message.includes('Gain')) targetCalories += 400;
-                        const prompt = `Create a detailed daily Indian diet plan for ${newFlowState.data.goal}, targeting ${targetCalories} kcal. Provide a list of meals using the card format.`;
+                        const prompt = `Create a detailed daily Indian diet plan for a ${newFlowState.data.gender} with the goal of ${newFlowState.data.goal}, targeting ${targetCalories} kcal. Provide a list of meals using the card format.`;
                         response = { message: "Okay, Boss! Cooking up a solid plan for you... 👨‍🍳", triggerAPI: true, prompt, useGrounding: false };
                         break;
                  }
@@ -1276,7 +1706,17 @@ const App = () => {
                     case 4:
                         const age = extractNumber(message);
                         if (isNaN(age) || age < 15 || age > 100) { response = { message: "Aiyo! I need a proper number for age, Boss. How old are you?" }; break; }
-                        newFlowState.data.age = age; newFlowState.step++;
+                        newFlowState.data.age = age; newFlowState.step = 4.5;
+                        response = { message: "Okay, and what's your gender?", suggestions: [{text:'Male', type:'chat'}, {text:'Female', type:'chat'}] };
+                        break;
+                    case 4.5:
+                        const gender = message.toLowerCase();
+                         if (!gender.includes('male') && !gender.includes('female')) {
+                           response = { message: "Please specify Male or Female, so I can create a better plan.", suggestions: [{text:'Male', type:'chat'}, {text:'Female', type:'chat'}] };
+                           break;
+                        }
+                        newFlowState.data.gender = gender.includes('male') ? 'male' : 'female';
+                        newFlowState.step = 5;
                         response = { message: "And how active are you?", suggestions: [{text:'🛋️ Sedentary (Desk Job/Minimal movement)', type:'chat'}, {text:'🚶 Lightly Active (1-3 days light exercise)', type:'chat'}, {text:'🏋️ Moderately Active (3-5 days moderate exercise)', type:'chat'}, {text:'🔥 Very Active (6-7 days intense exercise)', type:'chat'}] };
                         break;
                     case 5:
@@ -1294,6 +1734,7 @@ const App = () => {
                     case 8:
                         newFlowState.data.split = message; newFlowState.current = null; newFlowState.step = 0;
                         const prompt = `You are a certified fitness coach. Create a detailed, day-by-day workout plan for ${userName} Boss.
+                        - User Gender: ${newFlowState.data.gender}
                         - Goal: ${newFlowState.data.goal}
                         - Experience/Activity: ${newFlowState.data.activity}
                         - Schedule: ${newFlowState.data.days} per week
@@ -1341,20 +1782,32 @@ const App = () => {
                         break;
                     case 3.2:
                         newFlowState.data.lastWatched = message;
+                        newFlowState.step = 3.3;
+                        response = { message: "Good one! Any favorite actors or directors you're a fan of? (e.g., 'Mohanlal', 'Christopher Nolan', or 'None')" };
+                        break;
+                    case 3.3:
+                        newFlowState.data.actors = message;
+                        newFlowState.step = 3.4;
+                        response = { message: "Noted. Which streaming services do you usually use? (e.g., 'Netflix, Hotstar', or 'Any')", suggestions: [{text:'Netflix', type:'chat'}, {text:'Amazon Prime', type:'chat'}, {text:'Hotstar', type:'chat'}, {text:'Any', type:'chat'}] };
+                        break;
+                    case 3.4:
+                        newFlowState.data.services = message;
                         newFlowState.subFlow = null;
                         newFlowState.current = null; newFlowState.step = 0;
                         const aiPrompt = `The user, ${userName} Boss, wants a personalized ${newFlowState.data.type} recommendation.
                         - Their current mood is: ${newFlowState.data.mood}.
                         - The last thing they loved watching was: "${newFlowState.data.lastWatched}".
-                        Based on this, suggest 3 highly-rated, tailored recommendations. For EACH recommendation, you MUST provide the IMDb rating and release year. Use Google Search to find this info.
-                        Format each one as a card: **🎬 [Title]**\\n[A short, exciting one-liner about the plot.]\\n**Release Year:** [Year]\\n**IMDb Rating:** [Rating]/10`;
+                        - Favorite actors/directors: "${newFlowState.data.actors}".
+                        - Streaming services they use: "${newFlowState.data.services}".
+                        Based on all this, suggest 3 highly-rated, tailored recommendations. For EACH recommendation, you MUST provide the IMDb rating, release year, AND where to watch it (e.g., Netflix, Amazon Prime). Use Google Search to find this info.
+                        Format each one as a card: **🎬 [Title]**\\n[A short, exciting one-liner about the plot.]\\n**Release Year:** [Year]\\n**IMDb Rating:** [Rating]/10\\n**Where to Watch:** [Platform(s)]`;
                         response = { message: "Analyzing your vibe... let me cook up something special for you! 🔥", triggerAPI: true, prompt: aiPrompt, useGrounding: true };
                         break;
                     case 4:
                         newFlowState.data.language = message;
                         newFlowState.current = null; newFlowState.step = 0;
-                        const genrePrompt = `Suggest 4 great ${newFlowState.data.language} ${newFlowState.data.genre} ${newFlowState.data.type}s for ${userName} Boss. For EACH one, you MUST provide the IMDb rating and release year. Use Google Search to find this info.
-                        Format each one as a card: **🎬 [Title]**\\n[A short, exciting one-liner about the plot.]\\n**Release Year:** [Year]\\n**IMDb Rating:** [Rating]/10`;
+                        const genrePrompt = `Suggest 4 great ${newFlowState.data.language} ${newFlowState.data.genre} ${newFlowState.data.type}s for ${userName} Boss. For EACH one, you MUST provide the IMDb rating, release year, AND where to watch it. Use Google Search to find this info.
+                        Format each one as a card: **🎬 [Title]**\\n[A short, exciting one-liner about the plot.]\\n**Release Year:** [Year]\\n**IMDb Rating:** [Rating]/10\\n**Where to Watch:** [Platform(s)]`;
                         response = { message: "Oru rekshem illa! Searching for some bangers... 🍿", triggerAPI: true, prompt: genrePrompt, useGrounding: true };
                         break;
                 }
@@ -1582,6 +2035,14 @@ const App = () => {
                             )
                         ),
                         React.createElement(CasperEyes, { id: 'casper-eyes', eyeState: eyeState, pupilLeftRef: pupilLeftRef, pupilRightRef: pupilRightRef }),
+                        React.createElement('button', { id: 'voice-mode-btn', 'aria-label': 'Activate Voice Mode', onClick: () => setIsVoiceModeActive(true) },
+                            React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', width: '20', height: '20', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' },
+                                React.createElement('path', { d: 'M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z' }),
+                                React.createElement('path', { d: 'M19 10v2a7 7 0 0 1-14 0v-2' }),
+                                React.createElement('line', { x1: '12', y1: '19', x2: '12', y2: '23' }),
+                                React.createElement('line', { x1: '8', y1: '23', x2: '16', y2: '23' })
+                            )
+                        ),
                         React.createElement('button', { id: 'reset-btn', 'aria-label': 'Reset Chat', onClick: handleResetChat },
                             React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', width: '20', height: '20', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' },
                                 React.createElement('path', { d: 'M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }),
@@ -1660,6 +2121,11 @@ const App = () => {
                     )
                 )
             ),
+            
+            isVoiceModeActive && React.createElement(VoiceModeOverlay, { 
+                onClose: () => setIsVoiceModeActive(false), 
+                userName: userName 
+            }),
 
             error && (
                 React.createElement('div', { id: 'error-modal', className: 'visible' },

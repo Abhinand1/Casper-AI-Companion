@@ -1,5 +1,7 @@
 {
   "name": "Casper 2",
   "description": "A friendly, neighborhood AI companion named Casper. Engage in witty conversations, plan trips, get diet coaching, and more, all within a sleek, futuristic interface.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }
